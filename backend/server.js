@@ -1,29 +1,49 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
+// Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json()); // To parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
 
-const generateSequence = (length) => {
-    return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
-};
-
-app.post('/start', (req, res) => {
-    const sequenceLength = req.body.length || 5; // Default sequence length of 5
-    const sequence = generateSequence(sequenceLength);
-    res.json({ sequence });
+// Set up storage for video uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Specify upload folder
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Use timestamp to avoid filename collisions
+  }
 });
 
-app.post('/submit', (req, res) => {
-    const { userInput, correctSequence } = req.body;
-    const score = userInput === correctSequence ? 1 : 0; // Scoring: 1 for correct, 0 for incorrect
-    res.json({ score });
+// Initialize multer
+const upload = multer({ storage });
+
+// Ensure upload directory exists
+if (!fs.existsSync('uploads/')) {
+  fs.mkdirSync('uploads/');
+}
+
+// API endpoint to receive results
+app.post("/api/submit-results", upload.single("video"), (req, res) => {
+  const { score, time } = req.body;
+  const videoPath = req.file ? req.file.path : null; // Get the uploaded video path
+
+  // Save results (you can modify this to save to a database instead)
+  console.log("Score:", score);
+  console.log("Time:", time);
+  console.log("Video path:", videoPath);
+
+  res.status(200).json({ message: "Results received successfully!" });
 });
 
+// Start server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
